@@ -1,7 +1,11 @@
+#!/usr/bin/env python
+
 from unittest.mock import (
     ANY,
     MagicMock,
 )
+
+import pytest
 
 from lookup import (
     Mongo,
@@ -31,3 +35,7 @@ def test_insert_page():
         'torrent_id': TEST_ID,
         'added_at': ANY,
     })
+
+
+if __name__ == '__main__':
+    pytest.main('tests.py')
