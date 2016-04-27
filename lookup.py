@@ -10,7 +10,6 @@ from pyquery import PyQuery as pq
 import requests
 
 mongo_client = MongoClient()
-db = mongo_client.tpbmeta
 
 argument_parser = argparse.ArgumentParser(
     description='Add a URL to DB for later processing.'
@@ -20,19 +19,18 @@ argument_parser.add_argument(
 )
 
 
-def insert_page(id, short_url, url):
-    result = db.pages.insert_one({
-        'url': url,
-        'short_url': short_url,
-        'torrent_id': id,
-        'added_at': time.mktime(datetime.utcnow().timetuple()),
-    })
-    return result
+class Mongo(object):
+    db = None
+
+    def __init__(self, mongo_client):
+        self.db = mongo_client.tpbmeta
+
+mongo = Mongo(mongo_client)
 
 
 class ParsePagesList(object):
-    def __init__(self, db, arguments):
-        self.db = db
+    def __init__(self, mongo, arguments):
+        self.db = mongo.db
         self.args = arguments
         self.path_re = re.compile(r'^(\/torrent\/(\d+)\/).*')
         self.inserted_ids = []
@@ -67,11 +65,20 @@ class ParsePagesList(object):
             id = match.group(2)
 
             self.inserted_ids.append(
-                insert_page(id, short_url, url)
+                self.insert_page(id, short_url, url)
             )
+
+    def insert_page(self, id, short_url, url):
+        result = self.db.pages.insert_one({
+            'url': url,
+            'short_url': short_url,
+            'torrent_id': id,
+            'added_at': time.mktime(datetime.utcnow().timetuple()),
+        })
+        return result
 
 
 if __name__ == '__main__':
     args = argument_parser.parse_args()
-    parser = ParsePagesList(db, args)
+    parser = ParsePagesList(mongo, args)
     parser.parse_documents()
