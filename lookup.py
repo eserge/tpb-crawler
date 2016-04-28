@@ -6,6 +6,7 @@ from datetime import datetime
 import re
 
 from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError
 from pyquery import PyQuery as pq
 import requests
 
@@ -69,16 +70,23 @@ class ParsePagesList(object):
             )
 
     def insert_page(self, id, short_url, url):
-        result = self.db.pages.insert_one({
-            'url': url,
-            'short_url': short_url,
-            'torrent_id': id,
-            'added_at': time.mktime(datetime.utcnow().timetuple()),
-        })
+        result = None
+        try:
+            result = self.db.pages.insert_one({
+                'url': url,
+                'short_url': short_url,
+                'torrent_id': id,
+                'added_at': time.mktime(datetime.utcnow().timetuple()),
+            })
+        except DuplicateKeyError:
+            pass
+
         return result
 
 
 if __name__ == '__main__':
     args = argument_parser.parse_args()
     parser = ParsePagesList(mongo, args)
+    import pudb; pudb.set_trace()  # XXX BREAKPOINT
     parser.parse_documents()
+    parser.insert_page('14431726', '/short', '/long')
