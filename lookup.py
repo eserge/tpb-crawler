@@ -69,6 +69,11 @@ class ParsePagesList(object):
                 self.insert_page(id, short_url, url)
             )
 
+        self.inserted_ids = [
+            document_id for document_id in self.inserted_ids
+            if document_id is not None
+        ]
+
     def insert_page(self, id, short_url, url):
         result = None
         try:
@@ -87,6 +92,9 @@ class ParsePagesList(object):
 if __name__ == '__main__':
     args = argument_parser.parse_args()
     parser = ParsePagesList(mongo, args)
-    import pudb; pudb.set_trace()  # XXX BREAKPOINT
     parser.parse_documents()
-    parser.insert_page('14431726', '/short', '/long')
+    number = len(parser.inserted_ids)
+    plural_ending = '' if number == 1 else 's'
+    print('Added %(number)s document%(ending)s' % {
+        'number': number, 'ending': plural_ending,
+    })
