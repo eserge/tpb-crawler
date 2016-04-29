@@ -88,4 +88,3 @@ if __name__ == '__main__':
     args = argument_parser.parse_args()
     parser = ParsePagesList(mongo, args)
     parser.parse_documents()
-    parser.insert_page('14431726', '/short', '/long')
