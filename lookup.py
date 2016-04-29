@@ -12,11 +12,16 @@ import requests
 
 mongo_client = MongoClient()
 
+description = (
+    'Parses pages on given URLs find links on them and'
+    ' adds those to DB for later processing.'
+)
 argument_parser = argparse.ArgumentParser(
-    description='Add a URL to DB for later processing.'
+    description=description
 )
 argument_parser.add_argument(
-    'URL', nargs='*', help='A URL to add.'
+    'urls', nargs='+', metavar='URLs',
+    help='A space-separated list of URLs to parse.'
 )
 
 
@@ -30,15 +35,15 @@ mongo = Mongo(mongo_client)
 
 
 class ParsePagesList(object):
-    def __init__(self, mongo, arguments):
+    def __init__(self, mongo, urls):
         self.db = mongo.db
-        self.args = arguments
+        self.urls = urls
         self.path_re = re.compile(r'^(\/torrent\/(\d+)\/).*')
         self.inserted_ids = []
 
     def parse_documents(self):
         downloaded_list_documents = []
-        for url in self.args.URL:
+        for url in self.urls:
             try:
                 result = requests.get(url)
             except:
@@ -91,7 +96,7 @@ class ParsePagesList(object):
 
 if __name__ == '__main__':
     args = argument_parser.parse_args()
-    parser = ParsePagesList(mongo, args)
+    parser = ParsePagesList(mongo, args.urls)
     parser.parse_documents()
     number = len(parser.inserted_ids)
     plural_ending = '' if number == 1 else 's'
