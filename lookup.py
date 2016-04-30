@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
 import time
 from datetime import datetime
 import re
 
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
-from pyquery import PyQuery as pq
+from pyquery import PyQuery
 import requests
 
-mongo_client = MongoClient()
 
 description = (
     'Parses pages on given URLs find links on them and'
@@ -23,6 +23,32 @@ argument_parser.add_argument(
     'urls', nargs='+', metavar='URLs',
     help='A space-separated list of URLs to parse.'
 )
+
+mongo_client = MongoClient()
+
+loglevel = logging.DEBUG
+
+log_files = {
+    logging.DEBUG: 'debug.log',
+    logging.ERROR: 'error.log',
+}
+
+log_format = '[%(levelname)s]P:%(process)d T:%(thread)d %(asctime)s %(name)s.%(funcName)s: %(message)s'
+date_format = '%Y-%m-%d %H:%M:%S'
+formatter = logging.Formatter(fmt=log_format, datefmt=date_format)
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(loglevel)
+console_handler.setFormatter(formatter)
+
+file_handler = logging.FileHandler(log_files[loglevel])
+file_handler.setLevel(loglevel)
+file_handler.setFormatter(formatter)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(loglevel)
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
 
 
 class Mongo(object):
@@ -47,9 +73,11 @@ class ParsePagesList(object):
             try:
                 result = requests.get(url)
             except:
-                print('Failed to load: %s' % url)
+                logger.error('Failed to load: %s', url)
                 continue
             else:
+                logger.debug('Requested URL (%s) responded with'
+                             ' status_code=%s', url, result.status_code)
                 downloaded_list_documents.append({
                     'url': url,
                     'content': result.content,
@@ -59,7 +87,7 @@ class ParsePagesList(object):
             self.parse_pages_list(doc['content'])
 
     def parse_pages_list(self, content):
-        document = pq(content)
+        document = PyQuery(content)
         links = document('a.detLink')
         for link in links:
             url = link.attrib['href']
@@ -100,6 +128,6 @@ if __name__ == '__main__':
     parser.parse_documents()
     number = len(parser.inserted_ids)
     plural_ending = '' if number == 1 else 's'
-    print('Added %(number)s document%(ending)s' % {
+    logger.info('Added %(number)s document%(ending)s' % {
         'number': number, 'ending': plural_ending,
     })
