@@ -9,7 +9,9 @@ import re
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 from pyquery import PyQuery
+
 import requests
+from requests.exceptions import RequestException
 
 
 description = (
@@ -61,10 +63,11 @@ mongo = Mongo(mongo_client)
 
 
 class ParsePagesList(object):
+    path_re = re.compile(r'^.*(\/torrent\/(\d+)\/).*')
+
     def __init__(self, mongo, urls):
         self.db = mongo.db
         self.urls = urls
-        self.path_re = re.compile(r'^(\/torrent\/(\d+)\/).*')
         self.inserted_ids = []
 
     def parse_documents(self):
@@ -72,8 +75,8 @@ class ParsePagesList(object):
         for url in self.urls:
             try:
                 result = requests.get(url)
-            except:
-                logger.error('Failed to load: %s', url)
+            except RequestException:
+                logger.exception('Failed to load: %s', url)
                 continue
             else:
                 logger.debug('Requested URL (%s) responded with'
@@ -91,12 +94,9 @@ class ParsePagesList(object):
         links = document('a.detLink')
         for link in links:
             url = link.attrib['href']
-            match = self.path_re.search(url)
-            if not match:
+            id, short_url = self.match_url(url)
+            if not id:
                 continue
-
-            short_url = match.group(1)
-            id = match.group(2)
 
             self.inserted_ids.append(
                 self.insert_page(id, short_url, url)
@@ -106,6 +106,13 @@ class ParsePagesList(object):
             document_id for document_id in self.inserted_ids
             if document_id is not None
         ]
+
+    def match_url(self, url):
+        match = self.path_re.search(url)
+        if not match:
+            return None, None
+
+        return match.group(2), match.group(1)
 
     def insert_page(self, id, short_url, url):
         result = None
