@@ -45,39 +45,6 @@ def produce_requests_response_object(status_code, content):
     return requests_mock
 
 
-def create_mongo():
-    def insert_one(self, *args, **kwargs):
-        x = 0
-        while True:
-            x += 1
-            yield x
-
-    mongo_client = MagicMock()
-    mongo_client.tpbmeta = MagicMock()
-    mongo_client.tpbmeta.pages.insert_one = insert_one
-
-    return mongo_client
-
-
-def test_insert_page():
-    mongo_client = MagicMock()
-    mongo_client.tpbmeta = MagicMock()
-    mongo_client.tpbmeta.pages.insert_one = MagicMock()
-    mongo_client.tpbmeta.pages.insert_one.return_value = 'test_value'
-    mongo_insert = mongo_client.tpbmeta.pages.insert_one
-
-    mongo = Mongo(mongo_client)
-    parse = ParsePagesList(mongo, None)
-    parse.insert_page(TEST_ID, TEST_SHORT_URL, TEST_URL)
-
-    mongo_insert.assert_called_with({
-        'url': TEST_URL,
-        'short_url': TEST_SHORT_URL,
-        'torrent_id': TEST_ID,
-        'added_at': ANY,
-    })
-
-
 class TestParsePagesList(object):
     fake_urls = ['fake_url']
 
@@ -108,9 +75,38 @@ class TestParsePagesList(object):
             with self.assert_log_item('ERROR', expected_log_message):
                 parser.parse_documents()
 
+    def test_insert_page(self):
+        mongo = self.create_mongo()
+        mongo_insert = mongo.db.pages.insert_one
+
+        parse = ParsePagesList(mongo, None)
+        parse.insert_page(TEST_ID, TEST_SHORT_URL, TEST_URL)
+
+        mongo_insert.assert_called_once_with({
+            'url': TEST_URL,
+            'short_url': TEST_SHORT_URL,
+            'torrent_id': TEST_ID,
+            'added_at': ANY,
+        })
+
+    def create_mongo(self):
+        # def insert_one(self, *args, **kwargs):
+        #     x = 0
+        #     while True:
+        #         x += 1
+        #         yield x
+
+        mongo_client = MagicMock()
+        mongo_client.tpbmeta = MagicMock()
+        mongo_client.tpbmeta.pages.insert_one = MagicMock()
+        mongo_client.tpbmeta.pages.insert_one.return_value = 'test_value'
+
+        mongo = Mongo(mongo_client)
+        return mongo
+
     def create_parser(self, mongo=None, urls=None):
         if mongo is None:
-            mongo = create_mongo()
+            mongo = self.create_mongo()
 
         if urls is None:
             urls = self.fake_urls[:]
