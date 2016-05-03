@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from contextlib import contextmanager
 from http import HTTPStatus
 from unittest.mock import (
     ANY,
@@ -8,6 +9,7 @@ from unittest.mock import (
 )
 
 import pytest
+from testfixtures import LogCapture
 
 from lookup import (
     Mongo,
@@ -77,11 +79,10 @@ def test_insert_page():
 
 
 class TestParsePagesList(object):
-    def test_ok(self):
-        urls = ['fake_url']
-        mongo = create_mongo()
+    fake_urls = ['fake_url']
 
-        parser = ParsePagesList(mongo, urls)
+    def test_ok(self):
+        parser = self.create_parser()
         response = produce_requests_response_object(HTTPStatus.OK, TEST_HTML)
         with patch(
             'requests.get',
@@ -90,6 +91,38 @@ class TestParsePagesList(object):
             parser.parse_documents()
 
         assert len(parser.inserted_ids) == 2
+
+    def test_404(self):
+        parser = self.create_parser()
+        response = produce_requests_response_object(HTTPStatus.NOT_FOUND, '')
+        expected_log_message = (
+            'Failed to load: %s. status_code=%s' % (
+                self.fake_urls[0],
+                HTTPStatus.NOT_FOUND,
+            )
+        )
+        with patch(
+            'requests.get',
+            return_value=response
+        ):
+            with self.assert_log_item('ERROR', expected_log_message):
+                parser.parse_documents()
+
+    def create_parser(self, mongo=None, urls=None):
+        if mongo is None:
+            mongo = create_mongo()
+
+        if urls is None:
+            urls = self.fake_urls[:]
+
+        return ParsePagesList(mongo, urls)
+
+    @contextmanager
+    def assert_log_item(self, level, message):
+        with LogCapture() as log:
+            yield
+
+            log.check((ANY, level, message, ))
 
 
 if __name__ == '__main__':

@@ -3,8 +3,9 @@
 import argparse
 import logging
 import time
-from datetime import datetime
 import re
+from datetime import datetime
+from http import HTTPStatus
 
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
@@ -78,13 +79,20 @@ class ParsePagesList(object):
             except RequestException:
                 logger.exception('Failed to load: %s', url)
                 continue
-            else:
-                logger.debug('Requested URL (%s) responded with'
-                             ' status_code=%s', url, result.status_code)
-                downloaded_list_documents.append({
-                    'url': url,
-                    'content': result.content,
-                })
+            if result.status_code != HTTPStatus.OK:
+                logger.error(
+                    'Failed to load: %s. status_code=%s', url,
+                    result.status_code
+                )
+                continue
+
+            logger.debug(
+                'Requested URL (%s) is downloaded, starting to work on it.'
+            )
+            downloaded_list_documents.append({
+                'url': url,
+                'content': result.content,
+            })
 
         for doc in downloaded_list_documents:
             self.parse_pages_list(doc['content'])
